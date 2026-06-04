@@ -1,5 +1,6 @@
 import { type FC } from "react";
 import {
+  ActionBarPrimitive,
   ComposerPrimitive,
   ErrorPrimitive,
   MessagePrimitive,
@@ -115,6 +116,45 @@ const ToolFallback: ToolCallMessagePartComponent = ({ toolName, argsText, result
   </details>
 );
 
+const ThumbUpIcon: FC = () => (
+  <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor">
+    <path d="M2 21h2a1 1 0 0 0 1-1v-9a1 1 0 0 0-1-1H2zM7 11v9a1 1 0 0 0 1 1h9.3a2 2 0 0 0 1.95-1.55l1.5-6.5A2 2 0 0 0 18.8 9.5H14l.7-3.6A2 2 0 0 0 12.74 3.5a1 1 0 0 0-.9.56L7.6 11z" />
+  </svg>
+);
+
+const ThumbDownIcon: FC = () => (
+  <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor">
+    <path d="M22 3h-2a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h2zM17 13V4a1 1 0 0 0-1-1H6.7a2 2 0 0 0-1.95 1.55l-1.5 6.5A2 2 0 0 0 5.2 14.5H10l-.7 3.6a2 2 0 0 0 1.96 2.4 1 1 0 0 0 .9-.56L16.4 13z" />
+  </svg>
+);
+
+/**
+ * Thumbs up/down for the assistant reply. The buttons drive assistant-ui's
+ * built-in FeedbackAdapter (wired in RuntimeProvider), which resolves the
+ * LangSmith run_id and records the score. `data-submitted` is toggled by the
+ * primitive once a choice is made, so the active button stays highlighted.
+ */
+const FeedbackBar: FC = () => (
+  <ActionBarPrimitive.Root
+    hideWhenRunning
+    autohide="not-last"
+    className="ml-1 flex items-center gap-1 text-[var(--muted-foreground)]"
+  >
+    <ActionBarPrimitive.FeedbackPositive
+      aria-label="Good response"
+      className="rounded-md p-1.5 transition-colors hover:bg-[var(--accent-bg)] hover:text-[var(--accent)] data-[submitted=true]:bg-[var(--accent-bg)] data-[submitted=true]:text-[var(--accent)]"
+    >
+      <ThumbUpIcon />
+    </ActionBarPrimitive.FeedbackPositive>
+    <ActionBarPrimitive.FeedbackNegative
+      aria-label="Bad response"
+      className="rounded-md p-1.5 transition-colors hover:bg-[var(--danger-bg)] hover:text-[var(--danger)] data-[submitted=true]:bg-[var(--danger-bg)] data-[submitted=true]:text-[var(--danger)]"
+    >
+      <ThumbDownIcon />
+    </ActionBarPrimitive.FeedbackNegative>
+  </ActionBarPrimitive.Root>
+);
+
 const AssistantMessage: FC = () => (
   <MessagePrimitive.Root
     data-role="assistant"
@@ -131,6 +171,7 @@ const AssistantMessage: FC = () => (
     <ErrorPrimitive.Root className="rounded-md border border-[var(--danger-border)] bg-[var(--danger-bg)] px-2 py-1 text-xs text-[var(--danger)]">
       <ErrorPrimitive.Message />
     </ErrorPrimitive.Root>
+    <FeedbackBar />
   </MessagePrimitive.Root>
 );
 
