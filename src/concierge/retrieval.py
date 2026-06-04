@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from functools import lru_cache
 from pathlib import Path
 
@@ -11,6 +12,19 @@ from langchain_openai import OpenAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 KB_DIR = Path(__file__).parent / "kb"
+
+
+def _make_embeddings() -> OpenAIEmbeddings:
+    # Embeddings must go directly to OpenAI. The LangSmith gateway only
+    # allow-lists chat completions, not /embeddings, so when BASE_URL /
+    # OPENAI_BASE_URL point at the gateway (as they do for the chat model in
+    # graph.py) a default embeddings client inherits OPENAI_BASE_URL and gets a
+    # 403/501 from the gateway. Pin the embeddings endpoint to OpenAI directly.
+    return OpenAIEmbeddings(
+        model="text-embedding-3-small",
+        base_url="https://api.openai.com/v1",
+        api_key=os.environ["OPENAI_API_KEY"],
+    )
 
 
 def _load_kb_documents() -> list[Document]:
@@ -31,7 +45,7 @@ def get_vector_store() -> InMemoryVectorStore:
     docs = _load_kb_documents()
     splitter = RecursiveCharacterTextSplitter(chunk_size=600, chunk_overlap=80)
     chunks = splitter.split_documents(docs)
-    embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+    embeddings = _make_embeddings()
     return InMemoryVectorStore.from_documents(chunks, embeddings)
 
 
