@@ -4,6 +4,15 @@ A demo personal-banking customer service agent built to show off **LangSmith Eng
 
 The agent is intentionally a bit imperfect: the system prompt is under-specified and a few tools have rough edges, so when you run the load generator against it you get a healthy mix of clean traces, hallucinations, broken tool calls, scope-drifted answers, and over-retrieval loops. Engine clusters those into issues during the demo.
 
+The two headline bugs live on **two different fix surfaces**, so the demo shows both ways Engine recommends a fix:
+
+| Bug | Lives in | Effect | Engine fixes it by |
+|---|---|---|---|
+| "Answer rate questions from memory" instruction | **LangSmith Context Hub** (`banking-concierge-agent` / `AGENTS.md`) | ~40% ungrounded APY/APR answers | **Editing `AGENTS.md` in the Context Hub UI** — no code redeploy |
+| `account_lookup` returns unmasked PII | `src/concierge/tools.py` | SSN / card / CVV read back verbatim | **Opening a GitHub PR** against the connected repo |
+
+The agent's instructions are stored in Context Hub as a versioned `AGENTS.md` and pulled at runtime by `src/concierge/context.py:get_prompt()`. The repo keeps only that breadcrumb so Engine knows the prompt lives in the hub. Context Hub also holds a small library of show-only `SKILL.md` repos (the agent doesn't load them) to illustrate what a skills library looks like alongside the agent.
+
 ## What's in here
 
 ```
@@ -11,7 +20,9 @@ src/concierge/
   graph.py         StateGraph -> agent (LLM) <-> ToolNode
   app.py           FastAPI custom routes (mounts the React UI at /concierge/)
   state.py         MessagesState + retrieval_calls counter
-  prompts.py       Under-specified system prompt
+  context.py       Pulls the system prompt (AGENTS.md) from LangSmith Context Hub at runtime
+  context_hub.py   Seeds the hub AGENTS.md + show-only SKILL.md repos
+  prompts.py       Under-specified system prompt — seed pushed to the hub + offline fallback
   tools.py         search_banking_docs + 4 mocked banking tools
   retrieval.py     In-memory vector store over kb/*.md
   mock_data.py     Fake customers, transactions, branches
@@ -19,7 +30,8 @@ src/concierge/
 frontend/
   src/             React + assistant-ui chat client (Vite + Tailwind v4)
 scripts/
-  load_generation.py  Runs ~150 mixed conversations against the agent
+  load_generation.py     Runs ~150 mixed conversations against the agent
+  setup_context_hub.py   One-shot: seeds the hub with AGENTS.md + demo skills
 evals/
   golden_dataset.py   Creates a 7-example LangSmith dataset
   evaluators.py       Hallucination + trajectory LLM-as-judge
@@ -44,8 +56,19 @@ Required environment variables (see `.env.example`):
 | `LANGSMITH_API_KEY` | Tracing, datasets, experiments, deployment |
 | `LANGSMITH_TRACING` | `"true"` to send traces |
 | `LANGSMITH_PROJECT` | Tracing project for ad-hoc and loadgen runs |
+| `LANGSMITH_WORKSPACE_ID` | Workspace (tenant) the Context Hub repo is seeded into |
 | `CONCIERGE_MODEL` | _(optional)_ override the agent's chat model |
 | `LANGGRAPH_DEPLOYMENT_URL` | _(optional)_ deployment URL for `load_generation.py --mode remote` |
+
+### Seed Context Hub (one-time)
+
+The agent pulls its system prompt from LangSmith Context Hub, so seed the hub before the first run:
+
+```bash
+uv run python -m scripts.setup_context_hub
+```
+
+This creates the `banking-concierge-agent` agent repo (with the buggy `AGENTS.md`) and a few show-only `banking-concierge-*` skill repos. Until it's run, `get_prompt()` falls back to the seed in `prompts.py`, so the agent still works — but the "fix in Context Hub" demo beat needs the hub repo to exist.
 
 ## Run locally
 
@@ -172,7 +195,7 @@ Once deployed:
 2. Set priorities to "Tool Call Failures", "Hallucinations", and "Out-of-Scope". Optionally connect this repo for code-level diagnostics.
 3. Run `load_generation.py --mode remote --url <deployment-url>` to populate traces.
 4. Wait up to ~20 minutes for the first Engine scan.
-5. In the Engine tab you should see distinct clusters matching the planted error modes, each with a proposed fix, a suggested evaluator, and offline examples you can add to a dataset.
+5. In the Engine tab you should see distinct clusters matching the planted error modes, each with a proposed fix, a suggested evaluator, and offline examples you can add to a dataset. The hallucination cluster's fix is applied in the **Context Hub** (`AGENTS.md`); the PII cluster's fix is a **GitHub PR** against `tools.py`.
 
 ## Demo walkthrough
 
@@ -180,5 +203,6 @@ Once deployed:
 2. Run the load generator: 150 mixed conversations, tagged by category.
 3. In LangSmith, filter traces by tag to show the planted error modes are present.
 4. Open the **Engine** tab; show the clusters Engine produced, the proposed fixes, and the auto-generated dataset examples.
-5. Show the golden dataset and the offline experiment in **Datasets & Experiments** — the two LLM-as-judge scores are visible per run.
-6. Close the loop: open one Engine-proposed evaluator, deploy it, and explain that future regressions will be auto-detected against this exact dataset.
+5. Show the **two fix surfaces**: fix the hallucination by editing `AGENTS.md` in the **Context Hub** (no redeploy — the agent pulls the new version), and let Engine open a **GitHub PR** for the PII leak in `tools.py`. Optionally open the Context Hub to show the show-only skills library alongside the agent.
+6. Show the golden dataset and the offline experiment in **Datasets & Experiments** — the two LLM-as-judge scores are visible per run.
+7. Close the loop: open one Engine-proposed evaluator, deploy it, and explain that future regressions will be auto-detected against this exact dataset.
