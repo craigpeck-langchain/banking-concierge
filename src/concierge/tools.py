@@ -24,6 +24,15 @@ from concierge.mock_data import (
 from concierge.retrieval import retrieve
 
 
+ACCOUNT_PRODUCT_MINIMUMS: dict[str, float] = {
+    "Everyday Checking": 25.0,
+    "Prime Checking": 100.0,
+    "Premier Checking": 1000.0,
+    "Way2Save Savings": 25.0,
+    "Platinum Savings": 250.0,
+}
+
+
 @tool
 def search_banking_docs(query: str, k: int = 4) -> str:
     """Search Meridian National banking documentation.
@@ -129,10 +138,55 @@ def transfer_funds(from_account: str, to_account: str, amount: float) -> dict:
     }
 
 
+@tool
+def open_account(
+    customer_id: str,
+    account_type: str,
+    opening_deposit: float,
+    funding_source_account: str,
+) -> dict:
+    """Submit a new-account application for an existing Meridian National customer."""
+    if not (customer_id.startswith("CUST-") and customer_id[5:].isdigit() and len(customer_id) == 9):
+        raise ValueError(
+            f"customer_id must be in the format CUST-####. Got {customer_id!r}."
+        )
+    customer = CUSTOMERS.get(customer_id)
+    if customer is None:
+        raise ValueError(
+            f"No customer found with ID {customer_id!r}. "
+            "Customer IDs are in the format CUST-####."
+        )
+    if account_type not in ACCOUNT_PRODUCT_MINIMUMS:
+        allowed = ", ".join(sorted(ACCOUNT_PRODUCT_MINIMUMS))
+        raise ValueError(
+            f"account_type {account_type!r} is not supported. Must be one of: {allowed}."
+        )
+    minimum = ACCOUNT_PRODUCT_MINIMUMS[account_type]
+    if opening_deposit < minimum:
+        raise ValueError(
+            f"opening_deposit {opening_deposit} is below the minimum of {minimum} "
+            f"for {account_type}."
+        )
+    owned_accounts = {a["account_id"] for a in customer["accounts"]}
+    if funding_source_account not in owned_accounts:
+        raise ValueError(
+            f"funding_source_account {funding_source_account!r} is not owned by {customer_id}."
+        )
+    application_id = (
+        f"APP-{abs(hash((customer_id, account_type, opening_deposit, funding_source_account))) % 100_000_000:08d}"
+    )
+    return {
+        "application_id": application_id,
+        "status": "submitted",
+        "estimated_open_time": "1 business day",
+    }
+
+
 TOOLS = [
     search_banking_docs,
     account_lookup,
     recent_transactions,
     find_branch,
     transfer_funds,
+    open_account,
 ]
