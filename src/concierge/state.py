@@ -14,3 +14,5 @@ class ConciergeState(MessagesState):
     """
 
     retrieval_calls: int
+    thread_id: str
+    rep_id: str

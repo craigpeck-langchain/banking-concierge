@@ -16,6 +16,7 @@ from langchain_core.messages import SystemMessage
 from langchain_openai import ChatOpenAI
 from langgraph.graph import END, START, StateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
+from langsmith.run_helpers import tracing_context
 
 from concierge.context import get_prompt
 from concierge.state import ConciergeState
@@ -32,6 +33,11 @@ SYSTEM_PROMPT = get_prompt()
 def _make_model() -> ChatOpenAI:
     model_name = os.getenv("CONCIERGE_MODEL", "gpt-4o-mini")
     base_url = os.getenv("BASE_URL")
+    ls_metadata = {
+        "ls_provider": "openai",
+        "ls_model_name": model_name,
+        "ls_message_format": "openai",
+    }
     if base_url:
         # Route through the LangSmith LLM Gateway: callers authenticate with
         # their LangSmith API key; provider keys live in Provider Secrets.
@@ -43,14 +49,21 @@ def _make_model() -> ChatOpenAI:
         )
     else:
         client = ChatOpenAI(model=model_name, temperature=0.2)
-    return client.bind_tools(TOOLS)
+    return client.bind_tools(TOOLS).with_config({"metadata": ls_metadata})
 
 
 def agent_node(state: ConciergeState) -> dict:
     """Call the LLM with the message history plus the system prompt."""
     model = _make_model()
     messages = [SystemMessage(content=SYSTEM_PROMPT), *state["messages"]]
-    response = model.invoke(messages)
+    with tracing_context(
+        metadata={
+            "environment": os.getenv("ENVIRONMENT", "production"),
+            "thread_id": state.get("thread_id"),
+            "user_id": state.get("rep_id"),
+        }
+    ):
+        response = model.invoke(messages)
 
     retrieval_calls = state.get("retrieval_calls", 0)
     tool_calls = getattr(response, "tool_calls", None) or []
