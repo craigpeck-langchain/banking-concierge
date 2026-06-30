@@ -64,6 +64,25 @@ def account_lookup(customer_id: str) -> dict:
 
 
 @tool
+def lookup_customer_by_card(card_last_four: str) -> dict:
+    """Look up a customer by the last 4 digits of any card on file (never accepts full PAN/CVV)."""
+    if not (isinstance(card_last_four, str) and card_last_four.isdigit() and len(card_last_four) == 4):
+        raise ValueError("card_last_four must be 4 digits")
+    matches = [
+        c for c in CUSTOMERS.values()
+        if any(
+            card.get("number", "").replace(" ", "").endswith(card_last_four)
+            for card in c.get("credit_cards", [])
+        )
+    ]
+    if not matches:
+        return {"match": False}
+    if len(matches) > 1:
+        return {"match": "ambiguous", "count": len(matches)}
+    return {"match": True, "customer_id": matches[0]["customer_id"], "name": matches[0]["name"]}
+
+
+@tool
 def recent_transactions(customer_id: str, limit: int = 5) -> list[dict]:
     """Retrieve a customer's most recent transactions.
 
@@ -132,6 +151,7 @@ def transfer_funds(from_account: str, to_account: str, amount: float) -> dict:
 TOOLS = [
     search_banking_docs,
     account_lookup,
+    lookup_customer_by_card,
     recent_transactions,
     find_branch,
     transfer_funds,
