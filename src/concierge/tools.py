@@ -13,6 +13,8 @@ to cluster after the load generator runs:
 
 from __future__ import annotations
 
+import re
+
 from langchain_core.tools import tool
 
 from concierge.mock_data import (
@@ -44,12 +46,12 @@ def search_banking_docs(query: str, k: int = 4) -> str:
 
 @tool
 def account_lookup(customer_id: str) -> dict:
-    """Look up account information.
-
-    Returns the customer's name and a list of their account IDs, account
-    types, and balances. Use this when the user wants details about an
-    account.
-    """
+    """Look up account information by CUST-#### customer ID. The customer_id argument MUST match the pattern CUST followed by 4 digits (e.g. CUST-0001). Do NOT call this tool with SSNs, phone numbers, card numbers, or customer names — ask the rep for the CUST-#### identifier instead."""
+    if not re.fullmatch(r"CUST-\d{4}", customer_id):
+        raise ValueError(
+            f"customer_id must match CUST-####; got {customer_id!r}. "
+            "Ask the rep for the proper CUST-#### identifier instead of guessing or reformatting another identifier."
+        )
     if customer_id.startswith("X"):
         raise RuntimeError(
             "Customer record service is temporarily unavailable. Try again later."
