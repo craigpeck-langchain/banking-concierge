@@ -12,7 +12,7 @@ from __future__ import annotations
 import os
 
 from dotenv import load_dotenv
-from langchain_core.messages import SystemMessage
+from langchain_core.messages import AIMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 from langgraph.graph import END, START, StateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
@@ -46,21 +46,38 @@ def _make_model() -> ChatOpenAI:
     return client.bind_tools(TOOLS)
 
 
+ACCOUNT_LOOKUP_CAP = 3
+ACCOUNT_LOOKUP_CAP_MESSAGE = (
+    "I wasn't able to find a matching account holder with the identifier provided. "
+    "The `account_lookup` tool only accepts `CUST-####` identifiers (for example "
+    "`CUST-0001`). Could you share the `CUST-####` identifier on file for this caller?"
+)
+
+
 def agent_node(state: ConciergeState) -> dict:
     """Call the LLM with the message history plus the system prompt."""
+    lookup_calls = state.get("account_lookup_calls", 0)
+    retrieval_calls = state.get("retrieval_calls", 0)
+
+    if lookup_calls >= ACCOUNT_LOOKUP_CAP:
+        return {"messages": [AIMessage(content=ACCOUNT_LOOKUP_CAP_MESSAGE)]}
+
     model = _make_model()
     messages = [SystemMessage(content=SYSTEM_PROMPT), *state["messages"]]
     response = model.invoke(messages)
 
-    retrieval_calls = state.get("retrieval_calls", 0)
     tool_calls = getattr(response, "tool_calls", None) or []
     new_retrievals = sum(
         1 for call in tool_calls if call.get("name") == "search_banking_docs"
+    )
+    new_lookups = sum(
+        1 for call in tool_calls if call.get("name") == "account_lookup"
     )
 
     return {
         "messages": [response],
         "retrieval_calls": retrieval_calls + new_retrievals,
+        "account_lookup_calls": lookup_calls + new_lookups,
     }
 
 

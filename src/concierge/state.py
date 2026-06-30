@@ -14,3 +14,4 @@ class ConciergeState(MessagesState):
     """
 
     retrieval_calls: int
+    account_lookup_calls: int
