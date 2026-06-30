@@ -32,6 +32,13 @@ class Branch(TypedDict):
     hours: str
 
 
+class BranchVisit(TypedDict):
+    date: str
+    branch_name: str
+    branch_zip: str
+    purpose: str
+
+
 # NOTE: All PII below is synthetic test data:
 #   - SSNs use the 552/553 area (real but not assigned in bulk to fake records)
 #   - Credit card numbers are publicly known Stripe/Visa test cards that do not
@@ -226,3 +233,26 @@ def find_branch_by_zip(zip_code: str) -> Branch | None:
         if branch["zip_code"].startswith(prefix):
             return branch
     return None
+
+
+BRANCH_VISITS: dict[str, list[BranchVisit]] = {
+    "CUST-0001": [
+        {"date": "2026-05-18", "branch_name": "Meridian National - Market & 5th", "branch_zip": "94103", "purpose": "Deposit check"},
+        {"date": "2026-04-22", "branch_name": "Meridian National - Embarcadero Center", "branch_zip": "94111", "purpose": "Notary service"},
+        {"date": "2026-03-09", "branch_name": "Meridian National - Market & 5th", "branch_zip": "94103", "purpose": "Replacement debit card pickup"},
+    ],
+    "CUST-0002": [
+        {"date": "2026-05-15", "branch_name": "Meridian National - Midtown Manhattan", "branch_zip": "10017", "purpose": "Wire transfer initiation"},
+        {"date": "2026-02-28", "branch_name": "Meridian National - Midtown Manhattan", "branch_zip": "10017", "purpose": "Safe deposit box access"},
+    ],
+    "CUST-0003": [
+        {"date": "2026-05-02", "branch_name": "Meridian National - Palo Alto University Ave", "branch_zip": "94301", "purpose": "Account inquiry"},
+    ],
+    "CUST-0004": [
+        {"date": "2026-05-19", "branch_name": "Meridian National - Charlotte Uptown", "branch_zip": "28202", "purpose": "Private banker meeting"},
+        {"date": "2026-05-05", "branch_name": "Meridian National - Charlotte Uptown", "branch_zip": "28202", "purpose": "Wire transfer initiation"},
+        {"date": "2026-04-14", "branch_name": "Meridian National - Midtown Manhattan", "branch_zip": "10017", "purpose": "Notary service"},
+        {"date": "2026-03-30", "branch_name": "Meridian National - Charlotte Uptown", "branch_zip": "28202", "purpose": "Cashier's check"},
+    ],
+    "CUST-0005": [],
+}
