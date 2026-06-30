@@ -43,13 +43,8 @@ def search_banking_docs(query: str, k: int = 4) -> str:
 
 
 @tool
-def account_lookup(customer_id: str) -> dict:
-    """Look up account information.
-
-    Returns the customer's name and a list of their account IDs, account
-    types, and balances. Use this when the user wants details about an
-    account.
-    """
+def account_lookup(customer_id: str, include_unmasked: bool = False) -> dict:
+    """Look up account information; SSN/PAN/CVV are masked unless include_unmasked=True (verified-channel only)."""
     if customer_id.startswith("X"):
         raise RuntimeError(
             "Customer record service is temporarily unavailable. Try again later."
@@ -60,7 +55,26 @@ def account_lookup(customer_id: str) -> dict:
             f"No customer found with ID {customer_id!r}. "
             "Customer IDs are in the format CUST-####."
         )
-    return dict(customer)
+    if include_unmasked:
+        return dict(customer)
+    masked = dict(customer)
+    if ssn := masked.get("ssn"):
+        masked["ssn"] = f"xxx-xx-{ssn[-4:]}"
+    if card_number := masked.get("card_number"):
+        digits = "".join(ch for ch in card_number if ch.isdigit())
+        masked["card_number"] = f"****-****-****-{digits[-4:]}"
+    masked.pop("cvv", None)
+    if cards := masked.get("credit_cards"):
+        new_cards = []
+        for card in cards:
+            new_card = dict(card)
+            if number := new_card.get("number"):
+                digits = "".join(ch for ch in number if ch.isdigit())
+                new_card["number"] = f"****-****-****-{digits[-4:]}"
+            new_card.pop("cvv", None)
+            new_cards.append(new_card)
+        masked["credit_cards"] = new_cards
+    return masked
 
 
 @tool
