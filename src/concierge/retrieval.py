@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-from functools import lru_cache
 from pathlib import Path
 
 from langchain_core.documents import Document
@@ -40,13 +39,24 @@ def _load_kb_documents() -> list[Document]:
     return docs
 
 
-@lru_cache(maxsize=1)
+_VECTOR_STORE: InMemoryVectorStore | None = None
+
+
 def get_vector_store() -> InMemoryVectorStore:
+    """Return the KB vector store, memoizing only on successful construction."""
+    # Only cache on success — if construction raises (e.g. missing
+    # OPENAI_API_KEY at process start), leave the cache unset so the next
+    # call retries instead of pinning a transient credential outage for
+    # the pod lifetime.
+    global _VECTOR_STORE
+    if _VECTOR_STORE is not None:
+        return _VECTOR_STORE
     docs = _load_kb_documents()
     splitter = RecursiveCharacterTextSplitter(chunk_size=600, chunk_overlap=80)
     chunks = splitter.split_documents(docs)
     embeddings = _make_embeddings()
-    return InMemoryVectorStore.from_documents(chunks, embeddings)
+    _VECTOR_STORE = InMemoryVectorStore.from_documents(chunks, embeddings)
+    return _VECTOR_STORE
 
 
 def retrieve(query: str, k: int = 4) -> list[Document]:

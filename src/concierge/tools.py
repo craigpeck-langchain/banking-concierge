@@ -32,7 +32,15 @@ def search_banking_docs(query: str, k: int = 4) -> str:
         query: A natural-language search query.
         k: Number of relevant chunks to return. Defaults to 4.
     """
-    chunks = retrieve(query, k=k)
+    try:
+        chunks = retrieve(query, k=k)
+    except Exception as exc:
+        return (
+            "search_banking_docs is temporarily unavailable "
+            f"({type(exc).__name__}: {exc}). Do NOT invent a value. "
+            "Tell the rep the knowledge base lookup failed and offer "
+            "to try again or escalate — do not answer from memory."
+        )
     if not chunks:
         return "No relevant documentation found."
     blocks = []

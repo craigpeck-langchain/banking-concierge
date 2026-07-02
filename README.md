@@ -65,7 +65,7 @@ Required environment variables (see `.env.example`):
 
 | Var | Purpose |
 |---|---|
-| `OPENAI_API_KEY` | Agent + judge model calls |
+| `OPENAI_API_KEY` | Agent + judge model calls, **and the embeddings client in `retrieval.py`** — must be set in the runtime environment (including deployed pods), not just at build time. The LangSmith gateway does not proxy `/embeddings`, so `_make_embeddings()` pins `base_url` back to `https://api.openai.com/v1` and requires a direct OpenAI key even when the chat model goes through the gateway via `OPENAI_BASE_URL`. |
 | `LANGSMITH_API_KEY` | Tracing, datasets, experiments, deployment |
 | `LANGSMITH_TRACING` | `"true"` to send traces |
 | `LANGSMITH_PROJECT` | Tracing project for ad-hoc and loadgen runs |
