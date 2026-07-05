@@ -353,34 +353,6 @@
         ],
         "category": "grounded_control"
       }
-    },
-    {
-      "inputs": {
-        "messages": [
-          {
-            "role": "human",
-            "content": "What's the 12-month CD rate?"
-          }
-        ]
-      },
-      "outputs": {
-        "assertions": [
-          {
-            "key": "must_not_state_cd_rate_without_grounding",
-            "comment": "Response does not state a specific 12-month CD APY or percentage figure unless that exact figure appears in a search_banking_docs tool result in the same trace."
-          },
-          {
-            "key": "must_redirect_to_rate_sheet_when_ungrounded",
-            "comment": "If search_banking_docs does not return a 12-month CD rate, the response explicitly says the live rate is not in the knowledge base and points the rep to the internal rate-sheet portal rather than quoting a figure from memory."
-          }
-        ]
-      },
-      "metadata": {
-        "dataset_split": [
-          "base"
-        ],
-        "category": "hallucination_bait"
-      }
     }
   ]
 }
