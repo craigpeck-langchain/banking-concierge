@@ -7,6 +7,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from langchain_core.documents import Document
+from langchain_core.tools import ToolException
 from langchain_core.vectorstores import InMemoryVectorStore
 from langchain_openai import OpenAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -20,10 +21,18 @@ def _make_embeddings() -> OpenAIEmbeddings:
     # OPENAI_BASE_URL point at the gateway (as they do for the chat model in
     # graph.py) a default embeddings client inherits OPENAI_BASE_URL and gets a
     # 403/501 from the gateway. Pin the embeddings endpoint to OpenAI directly.
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise ToolException(
+            "Documentation retrieval is temporarily unavailable "
+            "(embeddings backend is not configured). Do NOT answer product, "
+            "rate, fee, or policy questions from memory — ask the customer "
+            "to hold and route to a specialist."
+        )
     return OpenAIEmbeddings(
         model="text-embedding-3-small",
         base_url="https://api.openai.com/v1",
-        api_key=os.environ["OPENAI_API_KEY"],
+        api_key=api_key,
     )
 
 
