@@ -129,10 +129,21 @@ def transfer_funds(from_account: str, to_account: str, amount: float) -> dict:
     }
 
 
+@tool
+def open_account(customer_id: str, product: str) -> dict:
+    """Stub: account opening is not supported by this agent."""
+    raise NotImplementedError(
+        "open_account is not supported by the concierge agent. "
+        "Route the customer service rep to Meridian National's "
+        "new-accounts / servicing workflow to complete this request."
+    )
+
+
 TOOLS = [
     search_banking_docs,
     account_lookup,
     recent_transactions,
     find_branch,
     transfer_funds,
+    open_account,
 ]
