@@ -9,19 +9,23 @@ Exported as `graph` for LangSmith / LangGraph CLI deployment.
 
 from __future__ import annotations
 
+import logging
 import os
 
 from dotenv import load_dotenv
-from langchain_core.messages import SystemMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 from langgraph.graph import END, START, StateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
+from openai import AuthenticationError
 
 from concierge.context import get_prompt
 from concierge.state import ConciergeState
 from concierge.tools import TOOLS
 
 load_dotenv(override=True)
+
+logger = logging.getLogger(__name__)
 
 # The system prompt (AGENTS.md) is pulled from LangSmith Context Hub at module
 # import; a hub edit is picked up on the next process start. Falls back to the
@@ -50,11 +54,36 @@ def _make_model() -> ChatOpenAI:
     return client.bind_tools(TOOLS)
 
 
+def healthcheck() -> bool:
+    """Validate the gateway credential with a minimal call; log on auth failure."""
+    try:
+        _make_model().invoke([HumanMessage(content="ping")])
+        return True
+    except AuthenticationError as exc:
+        logger.error("LLM gateway authentication failed at startup (401): %s", exc)
+        return False
+
+
 def agent_node(state: ConciergeState) -> dict:
     """Call the LLM with the message history plus the system prompt."""
     model = _make_model()
     messages = [SystemMessage(content=SYSTEM_PROMPT), *state["messages"]]
-    response = model.invoke(messages)
+    try:
+        response = model.invoke(messages)
+    except AuthenticationError as exc:
+        # The LangSmith LLM Gateway rejected our credential (401 invalid_api_key);
+        # degrade gracefully with a user-facing message instead of an empty output.
+        logger.error("LLM gateway authentication failed (401): %s", exc)
+        degraded = AIMessage(
+            content=(
+                "The assistant is temporarily unavailable due to an LLM service "
+                "authentication issue. Please try again shortly or escalate to support."
+            )
+        )
+        return {
+            "messages": [degraded],
+            "retrieval_calls": state.get("retrieval_calls", 0),
+        }
 
     retrieval_calls = state.get("retrieval_calls", 0)
     tool_calls = getattr(response, "tool_calls", None) or []
@@ -84,3 +113,7 @@ def _build_graph():
 
 
 graph = _build_graph()
+
+# Surface a bad/expired gateway credential at deploy time rather than on the
+# first user request; failure is logged (not raised) so import still succeeds.
+healthcheck()
