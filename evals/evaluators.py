@@ -44,7 +44,7 @@ def _make_judge() -> ChatOpenAI:
             model=JUDGE_MODEL_NAME,
             temperature=0,
             base_url=base_url,
-            api_key=os.environ["LANGSMITH_API_KEY"],
+            api_key=os.environ["LC_GATEWAY_KEY"],
         )
     return ChatOpenAI(model=JUDGE_MODEL_NAME, temperature=0)
 

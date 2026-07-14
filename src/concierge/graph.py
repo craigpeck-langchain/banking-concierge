@@ -34,12 +34,11 @@ def _make_model() -> ChatOpenAI:
     base_url = os.getenv("BASE_URL")
     if base_url:
         # Route through the LangSmith LLM Gateway: callers authenticate with
-        # their LangSmith API key; provider keys live in Provider Secrets.
-        # LANGSMITH_API_KEY and LANGCHAIN_API_KEY are both reserved names on
-        # LangSmith Cloud deployments and the control plane's auto-injected
-        # value under those names isn't usable here, so the deployment sets
-        # the key under this non-reserved name instead.
-        gateway_key = os.getenv("LANGSMITH_API_KEY_GATEWAY") or os.environ["LANGSMITH_API_KEY"]
+        # LC_GATEWAY_KEY, a machine/deployment-scoped service key (lsv2_sk_...)
+        # separate from a personal LangSmith workspace token (lsv2_pt_...) —
+        # the gateway rejects the latter. Provider keys live in Provider
+        # Secrets on the gateway side, not here.
+        gateway_key = os.environ["LC_GATEWAY_KEY"]
         client = ChatOpenAI(
             model=model_name,
             temperature=0.2,
